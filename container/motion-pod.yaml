@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: motion-deployment
+  labels:
+    app: motion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: motion
+  template:
+    metadata:
+      labels:
+        app: motion
+    spec:
+      containers:
+        - name: motion
+          image: docker.io/motionproject/motion:latest
+          ports:
+            - containerPort: 7999
+              hostPort: 7999
+              name: webcontrol
+            - containerPort: 8081
+              hostPort: 8081
+              name: stream
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - mountPath: /var/lib/motion
+              name: motion-storage-vol
+            # Update the mount path below to match the motionproject image requirement
+            - mountPath: /usr/local/etc/motion
+              name: motion-config-vol
+            - mountPath: /dev/video0
+              name: webcam-device
+      volumes:
+        - name: motion-storage-vol
+          hostPath:
+            path: /home/steve/motion/storage
+            type: DirectoryOrCreate
+        - name: motion-config-vol
+          hostPath:
+            path: /home/steve/motion/config
+            type: DirectoryOrCreate
+        - name: webcam-device
+          hostPath:
+            path: /dev/video0
+            type: CharDevice
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: motion-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: motion
+  ports:
+    - name: webcontrol
+      protocol: TCP
+      port: 7999
+      targetPort: 7999
+    - name: stream
+      protocol: TCP
+      port: 8081
+      targetPort: 8081
